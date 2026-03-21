@@ -11,7 +11,6 @@ import {
   X,
 } from 'lucide-react'
 
-// Type definition for a History Item
 type ReplyHistory = {
   id: string
   email: string
@@ -30,13 +29,11 @@ export default function ReplyGenerator() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  // Load history from localStorage on mount
   useEffect(() => {
     const savedHistory = localStorage.getItem('reply_history')
     if (savedHistory) setHistory(JSON.parse(savedHistory))
   }, [])
 
-  // Save history to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('reply_history', JSON.stringify(history))
   }, [history])
@@ -45,20 +42,40 @@ export default function ReplyGenerator() {
     if (!email.trim()) return alert('Please paste an email first!')
 
     setIsLoading(true)
+    console.log('🚀 Sending request to Render backend...')
+
     try {
-      const response = await fetch('/api/generate-reply', {
+      const response = await fetch('https://replygen-b.onrender.com/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, context, tone: selectedTone }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email_content: email,
+          context: context,
+        }),
       })
 
-      const data = await response.json()
-      const newReplyText = data.reply
+      if (!response.ok) {
+        const errorDetail = await response.json().catch(() => ({}))
+        console.error('❌ Backend Error Status:', response.status, errorDetail)
+        throw new Error(`Server error: ${response.status}`)
+      }
 
-      // 1. Update Current View
+      const data = await response.json()
+
+      // Since your backend returns { "replies": { "professional": "...", ... } }
+      const toneKey = selectedTone.toLowerCase()
+      const newReplyText = data.replies[toneKey]
+
+      if (!newReplyText) {
+        throw new Error(`Tone "${toneKey}" not found in server response`)
+      }
+
+      // Update Current View
       setReplies([{ tone: selectedTone, text: newReplyText }, ...replies])
 
-      // 2. Add to Local History
+      // Add to Local History
       const newHistoryItem: ReplyHistory = {
         id: crypto.randomUUID(),
         email,
@@ -68,8 +85,12 @@ export default function ReplyGenerator() {
         timestamp: Date.now(),
       }
       setHistory([newHistoryItem, ...history])
+      console.log('✅ Reply received and added to history.')
     } catch (error) {
-      console.error('Failed to generate:', error)
+      console.error('🛑 Generation Error:', error)
+      alert(
+        'Connection failed. Note: Render free-tier servers may take 30-60s to wake up if they have been idle.',
+      )
     } finally {
       setIsLoading(false)
     }
@@ -113,7 +134,7 @@ export default function ReplyGenerator() {
         )}
       </button>
 
-      {/* History Slide-over Component */}
+      {/* History Slide-over */}
       {showHistory && (
         <div className='fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm animate-in fade-in'>
           <div className='w-full max-w-md bg-white h-full shadow-2xl p-6 overflow-y-auto animate-in slide-in-from-right duration-300'>
@@ -187,7 +208,7 @@ export default function ReplyGenerator() {
         </div>
       )}
 
-      {/* Main UI Header */}
+      {/* Main UI */}
       <section className='text-center space-y-2'>
         <h1 className='text-4xl font-extrabold tracking-tight text-slate-900'>
           AI Email <span className='text-blue-600'>Reply Generator</span>
@@ -197,14 +218,13 @@ export default function ReplyGenerator() {
         </p>
       </section>
 
-      {/* Input Area */}
       <div className='glass-card p-6 md:p-8 space-y-6'>
         <div className='space-y-2'>
           <label className='text-sm font-semibold text-slate-700 ml-1'>
             Incoming Email
           </label>
           <textarea
-            className='input-field h-48 resize-none shadow-sm'
+            className='input-field h-48 resize-none shadow-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none'
             placeholder='Paste the email you received here...'
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -216,8 +236,8 @@ export default function ReplyGenerator() {
             Context / Your Goal
           </label>
           <input
-            className='input-field shadow-sm'
-            placeholder="e.g. 'Politely decline the invite' or 'Ask for a follow-up meeting'"
+            className='input-field shadow-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none'
+            placeholder="e.g. 'Politely decline' or 'Ask for a follow-up'"
             value={context}
             onChange={(e) => setContext(e.target.value)}
           />
@@ -230,8 +250,10 @@ export default function ReplyGenerator() {
                 key={tone}
                 disabled={isLoading}
                 onClick={() => generateReplies(tone)}
-                className={`btn-primary flex items-center justify-center gap-2 ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                className={`btn-primary flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95 ${
+                  isLoading
+                    ? 'opacity-50 cursor-not-allowed grayscale'
+                    : 'hover:shadow-lg'
                 }`}
               >
                 {isLoading ? (
@@ -246,7 +268,6 @@ export default function ReplyGenerator() {
         </div>
       </div>
 
-      {/* Results Section */}
       {replies.length > 0 && (
         <section className='space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-20'>
           <h2 className='text-xl font-bold text-slate-800 flex items-center gap-2'>
