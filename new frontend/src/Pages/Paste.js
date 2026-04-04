@@ -18,16 +18,22 @@ function Paste() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("http://localhost:8000/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email_content: emailText,
-          context: contextText,
-        }),
-      });
+      const response = await fetch(
+        "https://replygen-1.onrender.com/generate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email_content: emailText,
+            context: contextText,
+            tone: tone.toLowerCase(),
+            length: length.toLowerCase(),
+            intent: intent,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to generate reply");
@@ -92,11 +98,11 @@ function Paste() {
         <h2>Generate reply</h2>
         <textarea
           className="t1"
-          placeholder="Hi [Name],
+          placeholder={`Hi [Name],
 Thank you for your email. I appreciate you reaching out regarding...
 I’d be happy to move forward with this...
 Best regards,
-[Your Name]"
+[Your Name]`}
           value={generatedReply}
           readOnly
         ></textarea>
